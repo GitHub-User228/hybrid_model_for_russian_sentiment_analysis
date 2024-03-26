@@ -9,4 +9,4 @@ lib64
 pyvenv.cfg
 src/hybrid_model_for_russian_sentiment_analysis/weights
 commands.txt
-.egg-info
+src/hybrid_model_for_russian_sentiment_analysis.egg-info
