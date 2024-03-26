@@ -1,0 +1,16 @@
+model_checkpoint: 'ai-forever/rugpt3medium_based_on_gpt2'
+batch_size: 512
+head_models:
+    - head_model_FINAL_MHSA_STCNN_BiRNN
+    - head_model_FINAL_MHSA_STCNN_BiLSTM
+    - head_model_FINAL_MHSA_STCNN_GRU
+second_level_model: LGBMClassifier
+tokeniser_loader_parameters:
+    use_fast: False
+    padding_side: 'right'
+    truncation_size: 'right'
+tokeniser_parameters:
+    padding: 'max_length'
+    truncation: True
+    max_length: 16
+    return_token_type_ids: False

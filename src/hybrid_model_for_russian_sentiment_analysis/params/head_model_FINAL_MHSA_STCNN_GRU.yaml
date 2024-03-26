@@ -1,0 +1,126 @@
+name: FINAL_MHSA_STCNN_GRU
+main_model_class: MHSAParallelConvRecModel
+params:
+    mhsa_model_params:
+        n_features: 1024
+        query_dims: 
+        key_dims: 
+        n_heads: 1
+        p: 0.1
+    parallel_conv_model_params:
+        conv_models_kwargs:
+            conv_model1:
+                blocks_kwargs:
+                    block1:
+                        in_channels: 16
+                        out_channels: 16
+                        conv_kernel_size: 2
+                        conv_padding: 1
+                        pool_kernel_size:
+                            sequence: 2
+                            features: 2
+                        return_feature_map: True
+                        dim: features
+                sequence_size: 16
+                embedding_size: 1024
+                hidden_layers: []
+                p: 0.1
+            conv_model2:
+                blocks_kwargs:
+                    block1:
+                        in_channels: 16
+                        out_channels: 16
+                        conv_kernel_size: 3
+                        conv_padding: 1
+                        pool_kernel_size:
+                            sequence: 2
+                            features: 2
+                        return_feature_map: True
+                        dim: features
+                sequence_size: 16
+                embedding_size: 1024
+                hidden_layers: []
+                p: 0.1
+            conv_model3:
+                blocks_kwargs:
+                    block1:
+                        in_channels: 1024
+                        out_channels: 1024
+                        conv_kernel_size: 2
+                        conv_padding: 1
+                        pool_kernel_size:
+                            sequence: 2
+                            features: 2
+                        return_feature_map: True
+                        dim: sequence
+                sequence_size: 16
+                embedding_size: 1024
+                hidden_layers: []
+                p: 0.1
+            conv_model4:
+                blocks_kwargs:
+                    block1:
+                        in_channels: 1024
+                        out_channels: 1024
+                        conv_kernel_size: 3
+                        conv_padding: 1
+                        pool_kernel_size:
+                            sequence: 2
+                            features: 2
+                        return_feature_map: True
+                        dim: sequence
+                sequence_size: 16
+                embedding_size: 1024
+                hidden_layers: []
+                p: 0.1
+        hidden_layers: []
+        p: 0.1
+    conv_output_groups:
+        rec_model_temporal: [conv_model1, conv_model2]
+        rec_model_spatial: [conv_model3, conv_model4]
+    rec_models_params:
+        rec_model_temporal:
+            rec_model_kwargs:
+                gru:
+                    input_size: 
+                    hidden_size: 
+                    num_layers: 1
+                    batch_first: True
+                    dropout: 0.1
+                    bidirectional: False
+            hidden_layers: []
+            p: 0.1
+        rec_model_spatial:
+            rec_model_kwargs:
+                gru:
+                    input_size: 
+                    hidden_size: 
+                    num_layers: 1
+                    batch_first: True
+                    dropout: 0.1
+                    bidirectional: False
+            hidden_layers: []
+            p: 0.1
+    hidden_layers: [512, 128, 64]
+    p: 0.1
+training_configs:
+    n_epochs: 3
+    batch_size: 1024
+    loss_function: CrossEntropyLoss
+    optimizer: Adam
+    learning_rate: 0.00001
+    random_state: 42
+    scheduler: 
+    scheduler_params:
+    use_callback: True
+    eval_steps: 200
+    eval_batch_size: 1024
+    overwrite_existing_callback: True
+    checkpoint_each_epoch: True
+    metrics_names:
+        - accuracy
+        - balanced_accuracy
+        - precision
+        - recall
+        - f1
+callback_logdir: callback_head_model_FINAL_MHSA_STCNN_GRU

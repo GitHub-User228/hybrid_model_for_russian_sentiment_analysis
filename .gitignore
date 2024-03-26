@@ -1,0 +1,12 @@
+bin
+include
+.ipynb_checkpoints
+lib
+dist
+share
+lib64
+.idea
+pyvenv.cfg
+src/hybrid_model_for_russian_sentiment_analysis/weights
+commands.txt
+.egg-info
