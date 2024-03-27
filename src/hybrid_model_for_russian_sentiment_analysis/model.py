@@ -155,8 +155,7 @@ class CustomHybridModel:
         second_level_model = self.load_second_level_model()
 
         # Creating batch generator and tqdm iterator
-        #batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=self.config.batch_size, shuffle=False)
-        batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=3, shuffle=False)
+        batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=self.config.batch_size, shuffle=False)
         n_batches = math.ceil(len(data) / batch_generator.batch_size)
         if self.verbose:
             iterator = tqdm(enumerate(batch_generator), desc='batch', leave=True, total=n_batches)
