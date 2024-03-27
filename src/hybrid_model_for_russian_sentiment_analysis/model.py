@@ -5,20 +5,21 @@ warnings.filterwarnings("ignore")
 import os
 import sys
 import math
+import numpy as np
 from pathlib import Path
 
 import torch
 from torch import nn
-from torch.nn import *
+from torch.nn import Module
 from tqdm.auto import tqdm
 from transformers import AutoModel, AutoTokenizer
 
 from hybrid_model_for_russian_sentiment_analysis import logger
 from hybrid_model_for_russian_sentiment_analysis.constants import *
 from hybrid_model_for_russian_sentiment_analysis.models.head import HeadModel
+from hybrid_model_for_russian_sentiment_analysis.entity.dataset import CustomDataset
 from hybrid_model_for_russian_sentiment_analysis.models.trio import MHSAParallelConvRecModel
 from hybrid_model_for_russian_sentiment_analysis.utils.common import clear_vram, read_yaml, load_pkl
-from hybrid_model_for_russian_sentiment_analysis.entity.dataset import CustomDataset, EmbeddingsDataset
 
 
 def str_to_class(classname: str):
@@ -63,10 +64,7 @@ class CustomHybridModel:
         - tokeniser (object): Tokeniser's object.
         """
 
-        tokeniser = AutoTokenizer.from_pretrained(self.config.model_checkpoint,
-                                                  **self.config.tokeniser_loader_parameters)
-
-        return tokeniser
+        return AutoTokenizer.from_pretrained(self.config.model_checkpoint, **self.config.tokeniser_loader_parameters)
 
     def load_embedding_model(self) -> object:
         """
@@ -76,10 +74,7 @@ class CustomHybridModel:
         - model (object): Model's object.
         """
 
-        model = AutoModel.from_pretrained(self.config.model_checkpoint, num_labels=2).to(self.device)
-        model.eval()
-
-        return model
+        return AutoModel.from_pretrained(self.config.model_checkpoint, num_labels=2).to(self.device)
 
     def load_head_model(self, head_model_name: str) -> Module:
         """
@@ -115,8 +110,7 @@ class CustomHybridModel:
         - model: Second level model
         """
 
-        model = load_pkl(Path(os.path.join(WEIGHTS_FILE_PATH, f'{self.config.second_level_model}.pkl')), verbose=self.verbose)
-        return model
+        return load_pkl(Path(os.path.join(WEIGHTS_FILE_PATH, f'{self.config.second_level_model}.pkl')), verbose=self.verbose)
 
     def tokenise(self, data: list[str]) -> CustomDataset:
         """
@@ -133,179 +127,13 @@ class CustomHybridModel:
         output = tokeniser(data, **self.config.tokeniser_parameters)
         output = CustomDataset(input_ids=output['input_ids'], attention_mask=output['attention_mask'])
 
-        return output
-
-    def calculate_embeddings(self, data: CustomDataset):
-        """
-        Calculates embedding using embedding_model
-
-        Parameters:
-        - data (CustomDataset): Dataset to be processed
-
-        Returns:
-        - output (EmbeddingsDataset): Calculated embbeddings
-        """
-
-        # Loading model
-        embedding_model = self.load_embedding_model()
-
-        # Creating batch generator and tqdm iterator
-        batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=self.config.batch_size, shuffle=False)
-        n_batches = math.ceil(len(data) / batch_generator.batch_size)
-
-        if self.verbose:
-            iterator = tqdm(enumerate(batch_generator), desc='batch', leave=True, total=n_batches)
-        else:
-            iterator = enumerate(batch_generator)
-
-        # Encoding data
-        with torch.no_grad():
-
-            output = None
-
-            for it, (batch_ids, batch_masks) in iterator:
-                # Moving tensors to specified device
-                batch_ids = batch_ids.to(self.device)
-                batch_masks = batch_masks.to(self.device)
-
-                # Getting embeddings
-                batch_output = embedding_model(input_ids=batch_ids, attention_mask=batch_masks).last_hidden_state.to(
-                    'cpu').to(torch.float32)
-
-                # Merging outputs
-                output = batch_output if output == None else torch.cat([output, batch_output], axis=0)
-
-        output = EmbeddingsDataset(X=output)
-
-        del embedding_model
-
-        if self.verbose: logger.info('Embeddings have been calculated')
+        if self.verbose: logger.info("Data has been tokenised")
 
         return output
-
-    def calculate_logits(self,
-                         head_model_name: str,
-                         head_model: Module,
-                         data: EmbeddingsDataset) -> torch.Tensor:
-        """
-        Function to calculate logits for 0 class using head model on the whole data.
-
-        Parameters:
-        - head_model (Module): Head model.
-        - batch_size (int): Batch size.
-        - data (EmbeddingsDataset): Embeddings.
-
-        Returns:
-        - logits (torch.Tensor): Logits for 0 class
-        """
-
-        # Creating empty list to store logits
-        logits = []
-
-        # Creating batch generator and tqdm iterator
-        batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=self.params[
-            head_model_name].training_configs.batch_size, shuffle=False)
-        n_batches = math.ceil(len(data) / batch_generator.batch_size)
-
-        if self.verbose:
-            iterator = tqdm(enumerate(batch_generator), desc='batch', leave=True, total=n_batches)
-        else:
-            iterator = enumerate(batch_generator)
-
-        # Calculating logits for each batch of embeddings
-        for batch_X in batch_generator:
-            # Moving tensors to specified device
-            batch_X = batch_X.to(self.device)
-
-            with torch.no_grad():
-                # Calculating logits on the batch
-                batch_logits = head_model(batch_X)
-                batch_logits = batch_logits[:, 0].to('cpu')
-
-            # Appending calculated logits to the list with all logits
-            logits.append(batch_logits)
-
-        # Merging list with logits to a single Tensor
-        logits = torch.cat(logits, dim=0)
-
-        if self.verbose: logger.info(f'Logits have been calculated for {head_model_name}')
-
-        # Returning logits
-        return logits
-
-    def make_first_level_predictions(self, data: EmbeddingsDataset) -> list[list[float]]:
-        """
-        Calculates first level predictions (logits) for each head model
-
-        Parameters:
-        - data (EmbeddingsDataset): Data with calculated embeddings
-
-        Returns:
-        - all_logits (list[list[float]]): List with calculated logits
-        """
-
-        all_logits = []
-
-        if self.verbose:
-            iterations = tqdm(self.config.head_models,
-                              desc='head_models',
-                              leave=True,
-                              total=len(self.config.head_models))
-            iterations.set_postfix({'HEAD_MODEL': None})
-        else:
-            iterations = self.config.head_models
-
-        for head_model_name in iterations:
-
-            if self.verbose: iterations.set_postfix({'HEAD_MODEL': head_model_name})
-
-            # Loading head model
-            head_model = self.load_head_model(head_model_name=head_model_name)
-
-            # Calculating logits
-            logits = self.calculate_logits(head_model_name=head_model_name, head_model=head_model, data=data)
-            all_logits.append(logits.detach().tolist())
-
-            # Deleting model
-            del head_model
-
-            # Clearing VRAM cache
-            if self.device == 'cuda': clear_vram()
-
-        if self.verbose: logger.info(f'First level predictions have been made')
-
-        all_logits = list(map(list, zip(*all_logits)))
-
-        return all_logits
-
-
-    def make_second_level_prediction(self,
-                                     data: list[list[float]],
-                                     return_probabilities: bool = False) -> list[int]:
-        """
-        Calculates second level prediction using second level model
-
-        Parameters:
-        - data (list[list[float]]): Data with first level predictions (logits)
-
-        Returns:
-        - predictions (list[int]): List with predicted labels
-        """
-
-        model = self.load_second_level_model()
-
-        if return_probabilities:
-            predictions = model.predict_proba(data)
-        else:
-            predictions = model.predict(data)
-
-        if self.verbose: logger.info(f'Second level prediction have been made')
-
-        return predictions
 
     def predict_on_tokens(self,
                           data: CustomDataset,
-                          return_probabilities: bool = False) -> list[int]:
+                          return_probabilities: bool = False) -> np.ndarray:
         """
         Makes predictions via the hybrid model for the tokenised data.
 
@@ -313,18 +141,78 @@ class CustomHybridModel:
         - data (CustomDataset): Dataset to be processed
 
         Returns:
-        - data (list[int]): List with predicted labels
+        - predictions (np.ndarray): Array with predicted labels or probabilities
         """
 
-        data = self.calculate_embeddings(data=data)
+        # Loading the embedding model
+        embedding_model = self.load_embedding_model()
+        embedding_model.eval()
 
-        data = self.make_first_level_predictions(data=data)
+        # Loading the first level models (head models)
+        head_models = [self.load_head_model(head_model_name=name) for name in self.config.head_models]
 
-        data = self.make_second_level_prediction(data=data, return_probabilities=return_probabilities)
+        # Loading the second level model
+        second_level_model = self.load_second_level_model()
 
-        return data
+        # Creating batch generator and tqdm iterator
+        #batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=self.config.batch_size, shuffle=False)
+        batch_generator = torch.utils.data.DataLoader(dataset=data, batch_size=3, shuffle=False)
+        n_batches = math.ceil(len(data) / batch_generator.batch_size)
+        if self.verbose:
+            iterator = tqdm(enumerate(batch_generator), desc='batch', leave=True, total=n_batches)
+        else:
+            iterator = enumerate(batch_generator)
 
-    def predict(self, data: list[str]) -> list[int]:
+        # Calculating predictions
+        with torch.no_grad():
+
+            predictions = None
+
+            for it, (batch_ids, batch_masks) in iterator:
+                # Moving tensors to specified device
+                batch_ids = batch_ids.to(self.device)
+                batch_masks = batch_masks.to(self.device)
+
+                # Calculating embeddings
+                batch_output = embedding_model(input_ids=batch_ids, attention_mask=batch_masks).last_hidden_state.to(torch.float32)
+
+                # Converting data to EmbeddingsDataset format
+                # batch_output = EmbeddingsDataset(X=batch_output)
+
+                # Calculating first level predictions (logits) for each head model
+                logits = []
+                for k in range(len(head_models)):
+                    logits_ = head_models[k](batch_output)[:, 0].to('cpu')
+                    logits.append(logits_.detach().tolist())
+
+                # Transposing the array with logits
+                logits = list(map(list, zip(*logits)))
+
+                # Clearing VRAM cache
+                if self.device == 'cuda': clear_vram()
+                del batch_output
+
+                # Calculating second level prediction
+                if return_probabilities:
+                    predictions_ = second_level_model.predict_proba(logits, verbose=-1)
+                    # Merging outputs
+                    predictions = predictions_ if predictions is None else np.vstack([predictions, predictions_])
+                else:
+                    predictions_ = second_level_model.predict(logits, verbose=-1)
+                    # Merging outputs
+                    predictions = predictions_ if predictions is None else np.hstack([predictions, predictions_])
+
+        if self.verbose: logger.info("Predictions have been made")
+
+        # Deleting loaded models
+        del embedding_model
+        del head_models
+        del second_level_model
+
+        return predictions
+
+
+    def predict(self, data: list[str]) -> np.ndarray:
         """
         Makes predictions via the hybrid model for the preprocessed data.
 
@@ -332,16 +220,17 @@ class CustomHybridModel:
         - data (list[str]): Dataset to be processed
 
         Returns:
-        - data (list[int]): List with predicted labels
+        - data (np.ndarray): Array with predicted labels
         """
 
         data = self.tokenise(data=data)
 
-        data = self.predict_on_tokens(data=data)
+        data = self.predict_on_tokens(data=data, return_probabilities=False)
 
         return data
 
-    def predict_proba(self, data: list[str]) -> list[float]:
+
+    def predict_proba(self, data: list[str]) -> np.ndarray:
         """
         Calculates probabilities via the hybrid model for the preprocessed data.
 
@@ -349,7 +238,7 @@ class CustomHybridModel:
         - data (list[str]): Dataset to be processed
 
         Returns:
-        - data (list[int]): List with predicted probabilities
+        - data (np.ndarray): Array with predicted probabilities
         """
 
         data = self.tokenise(data=data)

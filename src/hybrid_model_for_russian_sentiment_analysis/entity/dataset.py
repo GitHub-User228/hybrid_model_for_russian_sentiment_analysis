@@ -32,27 +32,3 @@ class CustomDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, i):
         return self.input_ids[i,:], self.attention_mask[i,:]
-
-
-
-class EmbeddingsDataset(torch.utils.data.Dataset):
-
-    
-    def __init__(self, X):
-
-        super(EmbeddingsDataset, self).__init__()
-
-        if isinstance(X, torch.Tensor):
-            if X.dtype == torch.float32:
-               self.X = X
-            else:
-               self.X = X.to(torch.float32) 
-        else:
-            self.X = torch.tensor(X).to(torch.float32)
-    
-    def __len__(self):
-        return self.X.shape[0]
-
-    
-    def __getitem__(self, i):
-        return self.X[i,:]
