@@ -8,7 +8,6 @@ import math
 from pathlib import Path
 
 import torch
-import pandas as pd
 from torch import nn
 from torch.nn import *
 from tqdm.auto import tqdm
@@ -34,7 +33,7 @@ class CustomHybridModel:
     - config (dict): Configuration settings.
     - params (list[dict]): List of dictionaries with parameters for the head models.
     - device (str): Device on which calculations will be performed
-        - verbose (bool): Whether to print and save logs during calculation.
+    - verbose (bool): Whether to print and save logs during calculation.
     """
 
     def __init__(self,
@@ -99,9 +98,9 @@ class CustomHybridModel:
                           main_model_kwargs=self.params[head_model_name].params)
 
         model._modules['main_model'].load_state_dict(
-            torch.load(os.path.join(WEIGHTS_FILE_PATH, f'{self.params[head_model_name].name}_main_model.pt')))
+            torch.load(os.path.join(WEIGHTS_FILE_PATH, f'{self.params[head_model_name].name}_main_model.pt'), map_location=self.device))
         model._modules['ffnn'].load_state_dict(
-            torch.load(os.path.join(WEIGHTS_FILE_PATH, f'{self.params[head_model_name].name}_ffnn.pt')))
+            torch.load(os.path.join(WEIGHTS_FILE_PATH, f'{self.params[head_model_name].name}_ffnn.pt'), map_location=self.device))
 
         model.eval()
         model = model.to(self.device)
@@ -116,7 +115,7 @@ class CustomHybridModel:
         - model: Second level model
         """
 
-        model = load_pkl(WEIGHTS_FILE_PATH, f'{self.config.second_level_model}.pkl')
+        model = load_pkl(Path(os.path.join(WEIGHTS_FILE_PATH, f'{self.config.second_level_model}.pkl')), verbose=self.verbose)
         return model
 
     def tokenise(self, data: list[str]) -> CustomDataset:
@@ -234,7 +233,7 @@ class CustomHybridModel:
         # Returning logits
         return logits
 
-    def make_first_level_predictions(self, data: EmbeddingsDataset) -> pd.DataFrame:
+    def make_first_level_predictions(self, data: EmbeddingsDataset) -> list[list[float]]:
         """
         Calculates first level predictions (logits) for each head model
 
@@ -242,10 +241,10 @@ class CustomHybridModel:
         - data (EmbeddingsDataset): Data with calculated embeddings
 
         Returns:
-        - all_logits (pd.DataFrame): DataFrame with calculated logits
+        - all_logits (list[list[float]]): List with calculated logits
         """
 
-        all_logits = pd.DataFrame()
+        all_logits = []
 
         if self.verbose:
             iterations = tqdm(self.config.head_models,
@@ -265,38 +264,40 @@ class CustomHybridModel:
 
             # Calculating logits
             logits = self.calculate_logits(head_model_name=head_model_name, head_model=head_model, data=data)
-            logits = logits.detach().numpy()
-            all_logits[head_model_name] = logits
+            all_logits.append(logits.detach().tolist())
 
             # Deleting model
             del head_model
 
             # Clearing VRAM cache
-            clear_vram()
+            if self.device == 'cuda': clear_vram()
 
         if self.verbose: logger.info(f'First level predictions have been made')
 
+        all_logits = list(map(list, zip(*all_logits)))
+
         return all_logits
 
+
     def make_second_level_prediction(self,
-                                     data: pd.DataFrame,
+                                     data: list[list[float]],
                                      return_probabilities: bool = False) -> list[int]:
         """
         Calculates second level prediction using second level model
 
         Parameters:
-        - data (pd.DataFrame): Data with first level predictions (logits)
+        - data (list[list[float]]): Data with first level predictions (logits)
 
         Returns:
-        - predictions (list): List with predicted labels
+        - predictions (list[int]): List with predicted labels
         """
 
         model = self.load_second_level_model()
 
         if return_probabilities:
-            predictions = model.predict_proba(data.values)
+            predictions = model.predict_proba(data)
         else:
-            predictions = model.predict(data.values)
+            predictions = model.predict(data)
 
         if self.verbose: logger.info(f'Second level prediction have been made')
 

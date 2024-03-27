@@ -1,5 +1,4 @@
 import os
-import sys
 import yaml
 import joblib
 from pathlib import Path
@@ -9,7 +8,7 @@ from box.exceptions import BoxValueError
 from ensure import ensure_annotations
 
 import gc
-import torch
+from torch import cuda
 
 from hybrid_model_for_russian_sentiment_analysis import logger
 
@@ -45,21 +44,27 @@ def read_yaml(path_to_yaml: Path, verbose: bool = True) -> ConfigBox:
 
 
 def clear_vram():
-    torch.cuda.empty_cache()
+    cuda.empty_cache()
     gc.collect()
 
 
 
-def load_pkl(path: str, filename: str):
+@ensure_annotations
+def load_pkl(path_to_pkl: Path, verbose: bool=True):
     """
-    Loads second level model
+    Loads pkl file
 
     Parameters:
     - path (str): Path from where to load model
     - filename (str): Filename of pkl file.
 
     Returns:
-    - model: Loaded second level model
+    - model: Loaded pkl file
     """
-    
-    return joblib.load(os.path.join(path, filename))
+    try:
+        content = joblib.load(path_to_pkl)
+        if verbose: logger.info(f"pkl file: {path_to_pkl} loaded successfully")
+        return content
+    except Exception as e:
+        logger.info(f"An exception {e} has occurred")
+        raise e
