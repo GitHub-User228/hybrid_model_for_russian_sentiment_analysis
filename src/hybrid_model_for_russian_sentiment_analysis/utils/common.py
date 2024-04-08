@@ -5,7 +5,6 @@ from pathlib import Path
 
 from box import ConfigBox
 from box.exceptions import BoxValueError
-from ensure import ensure_annotations
 
 import gc
 from torch import cuda
@@ -14,13 +13,13 @@ from hybrid_model_for_russian_sentiment_analysis import logger
 
 
 
-@ensure_annotations
 def read_yaml(path_to_yaml: Path, verbose: bool = True) -> ConfigBox:
     """
     Reads a yaml file, and returns a ConfigBox object.
 
     Args:
         path_to_yaml (Path): Path to the yaml file.
+        verbose (bool): Whether to show logger's messages.
 
     Raises:
         ValueError: If the yaml file is empty.
@@ -49,7 +48,6 @@ def clear_vram():
 
 
 
-@ensure_annotations
 def load_pkl(path_to_pkl: Path, verbose: bool=True):
     """
     Loads pkl file

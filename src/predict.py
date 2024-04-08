@@ -1,3 +1,14 @@
+"""
+This script can be used to use the hybrid model to make predictions for the input text
+
+Arguments:
+    --t (str): Input text
+    --d (str): Device on which calculations will be performed (cpu or cuda)
+    --v (bool): Whether to show logger's messages.
+    --p (bool) If True, then model will output probabilities for each class. Otherwise - predicted label.
+"""
+
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -12,7 +23,7 @@ def t_or_f(arg):
     elif arg == 'False':
        return False
     else:
-       raise ValueError("invalid value for boolean argument --p")
+       raise ValueError("invalid value for boolean argument")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--t', type=str)

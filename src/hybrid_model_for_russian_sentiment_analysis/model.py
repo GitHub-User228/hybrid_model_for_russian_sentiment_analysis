@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore")
 import os
 import sys
 import math
+import gdown
 import numpy as np
 from pathlib import Path
 
@@ -48,13 +49,32 @@ class CustomHybridModel:
         - verbose (bool): Whether to print and save logs during calculation.
         """
 
+        if device not in ['cuda', 'cpu']:
+            logger.error(f'device must be either cpu or cuda, not {device}')
+            raise ValueError(f'device must be either cpu or cuda, not {device}')
+
         self.config = read_yaml(Path(CONFIG_FILE_PATH), verbose=verbose)
+        self.download_weights()
         self.params = {}
         for head_model in self.config.head_models:
             self.params[head_model] = read_yaml(Path(os.path.join(PARAMS_FILE_PATH, f"{head_model}.yaml")),
                                                 verbose=verbose)
         self.device = device
         self.verbose = verbose
+
+
+    def download_weights(self):
+        """
+        Checks if all weights of the sub-models have been downloaded.
+        If not, they will be downloaded.
+        """
+
+        if not os.path.exists(WEIGHTS_FILE_PATH):
+            os.mkdir(WEIGHTS_FILE_PATH)
+
+        for (file_id, file_name) in self.config.weights.items():
+            if not os.path.exists(os.path.join(WEIGHTS_FILE_PATH, file_name)):
+                gdown.download(id=file_id, output=os.path.join(WEIGHTS_FILE_PATH, file_name))
 
     def load_tokeniser(self) -> object:
         """

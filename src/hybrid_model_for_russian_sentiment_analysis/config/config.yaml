@@ -14,3 +14,11 @@ tokeniser_parameters:
     truncation: True
     max_length: 16
     return_token_type_ids: False
+weights:
+    1lz36XXw5JPjyGnH8p1ozwzw0N0phUJ2D: 'FINAL_MHSA_STCNN_BiLSTM_ffnn.pt'
+    1YNevg4YEm8i1qCorQxrWCI3Blpmr-aGZ: 'FINAL_MHSA_STCNN_BiLSTM_main_model.pt'
+    1FcM1IsBQTZwBfaqW-0F7LAxzPty0S06F: 'FINAL_MHSA_STCNN_BiRNN_ffnn.pt'
+    1A1FPksiAennk46hYWi8uPbhNIPsZ6tNX: 'FINAL_MHSA_STCNN_BiRNN_main_model.pt'
+    1TGrj2kt0rgZlCaetuunHx3OM0S1gVai_: 'FINAL_MHSA_STCNN_GRU_ffnn.pt'
+    1VxTKtDC31GOrUULglpq5PPjLwb6nu6B9: 'FINAL_MHSA_STCNN_GRU_main_model.pt'
+    1Numa7YVbB0sYOoFtg7m-GGgHB8nHsHGB: 'LGBMClassifier.pkl'

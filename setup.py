@@ -5,7 +5,7 @@ from typing import List
 with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
-__version__ = "0.0.2"
+__version__ = "1.0.1"
 
 REPO_NAME = "hybrid_model_for_russian_sentiment_analysis"
 AUTHOR_USER_NAME = "GitHub-User228"
@@ -50,7 +50,7 @@ setup(
     python_requires='>=3.9',
     install_requires=get_requirements('requirements.txt'),
     dependency_links=[
-            'https://pypi.example.org/',
+            'https://pypi.org/',
             'https://download.pytorch.org/whl/cu118'
         ],
     include_package_data = True

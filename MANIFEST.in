@@ -1,3 +1,2 @@
 include src/hybrid_model_for_russian_sentiment_analysis/config/*
 include src/hybrid_model_for_russian_sentiment_analysis/params/*
-include src/hybrid_model_for_russian_sentiment_analysis/weights/*
