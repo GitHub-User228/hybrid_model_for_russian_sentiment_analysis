@@ -4,7 +4,7 @@ ITMO University R&D Project
 This repository contains source code with the implementation of the hybrid model for russian sentiment analysis task.
 
 A package with the corresponding model can be downloaded from pypi: \
-pip install hybrid-model-for-russian-sentiment-analysis==1.0.2
+pip install hybrid-model-for-russian-sentiment-analysis
 
 Weights of the sub-models will be downloaded during the first usage of the model.
 
